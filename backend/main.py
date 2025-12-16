@@ -218,7 +218,11 @@ if __name__ == "__main__":
     import uvicorn
     
     host = os.getenv("API_HOST", "0.0.0.0")
-    port = int(os.getenv("API_PORT", 8000))
+    # Render uses PORT, but allow API_PORT for local development
+    port = int(os.getenv("PORT", os.getenv("API_PORT", "8000")))
     
     print(f"Starting API server on {host}:{port}")
-    uvicorn.run(app, host=host, port=port)
+    print(f"PORT environment variable: {os.getenv('PORT', 'not set')}")
+    print(f"API_PORT environment variable: {os.getenv('API_PORT', 'not set')}")
+    
+    uvicorn.run(app, host=host, port=port, log_level="info")

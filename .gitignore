@@ -1,0 +1,50 @@
+# Python
+venv/
+env/
+ENV/
+*.pyc
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+
+# Logs
+*.log
+logs/
+frontend.log
+backend.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Temporary/Development files
+cleanup.fish
+*.tmp
+*.bak
+
+# Excel files (keep only predictions.csv)
+*.xlsx
+Gen_AI Dataset.xlsx
+
+# Assignment files (not needed in repo)
+*.pdf
+SHL-AI-Intern-Assignment.md
+"SHL AI Intern RE Generative AI assignment.pdf"
+
+# Git
+.git/
+
+# Deployment
+.vercel/
+.railway/

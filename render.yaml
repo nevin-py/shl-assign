@@ -1,0 +1,27 @@
+services:
+  # Backend API Service
+  - type: web
+    name: shl-assessment-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 8000
+    healthCheckPath: /health
+    
+  # Frontend Streamlit Service  
+  - type: web
+    name: shl-assessment-frontend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run frontend/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 8501
+      - key: API_URL
+        value: https://shl-assessment-api.onrender.com

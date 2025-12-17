@@ -63,32 +63,48 @@ def get_api_url():
 def check_api_health(api_url):
     """Check if the API is healthy"""
     try:
-        response = requests.get(f"{api_url}/health", timeout=5)
+        st.write(f"🔍 Checking: {api_url}/health")
+        response = requests.get(f"{api_url}/health", timeout=10)
+        st.write(f"📡 Status Code: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
             return data.get("status") == "healthy", data.get("message", "")
-        return False, "API returned non-200 status"
+        return False, f"API returned {response.status_code}: {response.text[:200]}"
+    except requests.exceptions.Timeout:
+        return False, "Request timed out after 10 seconds"
+    except requests.exceptions.ConnectionError as e:
+        return False, f"Connection error: {str(e)}"
     except Exception as e:
-        return False, str(e)
+        return False, f"Error: {type(e).__name__}: {str(e)}"
 
 
 def get_recommendations(api_url, query):
     """Get recommendations from the API"""
     try:
+        st.write(f"🔍 Sending request to: {api_url}/recommend")
         response = requests.post(
             f"{api_url}/recommend",
             json={"query": query},
-            timeout=60
+            timeout=90
         )
+        
+        st.write(f"📡 Status Code: {response.status_code}")
         
         if response.status_code == 200:
             return response.json().get("recommendations", []), None
         else:
-            error_detail = response.json().get("detail", "Unknown error")
-            return None, f"API Error: {error_detail}"
+            try:
+                error_detail = response.json().get("detail", "Unknown error")
+            except:
+                error_detail = response.text[:500]
+            return None, f"API Error ({response.status_code}): {error_detail}"
             
+    except requests.exceptions.Timeout:
+        return None, "Request timed out after 90 seconds. The API may be initializing on first request."
+    except requests.exceptions.ConnectionError as e:
+        return None, f"Connection Error: Cannot reach API at {api_url}. {str(e)}"
     except Exception as e:
-        return None, f"Request Error: {str(e)}"
+        return None, f"Request Error ({type(e).__name__}): {str(e)}"
 
 
 def main():
@@ -113,6 +129,7 @@ def main():
         # API Health Check
         st.header("🔌 API Status")
         api_url = get_api_url()
+        st.code(f"API URL: {api_url}", language="text")
         
         if st.button("Check API Health"):
             with st.spinner("Checking API..."):

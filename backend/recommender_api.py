@@ -44,14 +44,21 @@ class APIRecommendationEngine:
         
         # Group by test type
         type_groups = defaultdict(list)
+        # Normalize test_type to a hashable key (string). metadata may contain list/tuple.
         for rec in results:
             test_type = rec.get('test_type', 'Unknown')
-            type_groups[test_type].append(rec)
+            if isinstance(test_type, (list, tuple)):
+                key = ', '.join([str(t) for t in test_type])
+            else:
+                key = str(test_type)
+            # store the normalized key temporarily for later cleanup
+            rec['_test_type_key'] = key
+            type_groups[key].append(rec)
         
         # Balanced selection
         balanced = []
         type_order = list(type_groups.keys())
-        
+
         # Round-robin selection
         while len(balanced) < max_results and any(type_groups.values()):
             for test_type in type_order:
@@ -59,7 +66,7 @@ class APIRecommendationEngine:
                     balanced.append(type_groups[test_type].pop(0))
                     if len(balanced) >= max_results:
                         break
-        
+
         # Ensure minimum
         if len(balanced) < min_results and results:
             for rec in results:
@@ -67,8 +74,14 @@ class APIRecommendationEngine:
                     balanced.append(rec)
                     if len(balanced) >= min_results:
                         break
-        
-        return balanced[:max_results]
+
+        # Clean up temporary keys before returning
+        final = balanced[:max_results]
+        for r in final:
+            if '_test_type_key' in r:
+                del r['_test_type_key']
+
+        return final
     
     def get_recommendations(self, query: str, min_results: int = 5, max_results: int = 10) -> Dict:
         """

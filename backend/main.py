@@ -10,6 +10,9 @@ import os
 import sys
 from dotenv import load_dotenv
 
+# Load environment variables first
+load_dotenv()
+
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -23,8 +26,6 @@ if USE_API_EMBEDDINGS:
 else:
     from backend.recommender_local import LocalRecommendationEngine as RecommendationEngine
     print("💻 Using local embeddings (full model)")
-
-load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(

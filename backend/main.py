@@ -85,18 +85,22 @@ class HealthResponse(BaseModel):
     message: Optional[str] = None
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the recommendation engine on startup"""
+def get_recommender():
+    """Lazy-initialize the recommendation engine on first use"""
     global recommender
-    try:
-        print("Initializing local recommendation engine...")
-        chroma_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
-        recommender = LocalRecommendationEngine(chroma_dir=chroma_dir)
-        print("Recommendation engine initialized successfully")
-    except Exception as e:
-        print(f"Error initializing recommendation engine: {e}")
-        print("Warning: API will not function properly without recommendation engine")
+    if recommender is None:
+        try:
+            print("Initializing local recommendation engine...")
+            chroma_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+            recommender = LocalRecommendationEngine(chroma_dir=chroma_dir)
+            print("Recommendation engine initialized successfully")
+        except Exception as e:
+            print(f"Error initializing recommendation engine: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=f"Failed to initialize recommendation engine: {str(e)}"
+            )
+    return recommender
 
 
 @app.get("/", tags=["Root"])
@@ -120,24 +124,12 @@ async def health_check():
     Returns:
         HealthResponse: Status of the API
     """
-    if recommender is None:
-        return HealthResponse(
-            status="unhealthy",
-            message="Recommendation engine not initialized"
-        )
-    
-    try:
-        # Check if ChromaDB collection is accessible
-        stats = recommender.embedding_pipeline.get_stats()
-        return HealthResponse(
-            status="healthy",
-            message=f"API is running. {stats['total_assessments']} assessments loaded."
-        )
-    except Exception as e:
-        return HealthResponse(
-            status="unhealthy",
-            message=f"Error: {str(e)}"
-        )
+    # Return healthy immediately without initializing the heavy recommender
+    # This allows Render to detect the service is up quickly
+    return HealthResponse(
+        status="healthy",
+        message="API is running. Recommendation engine will initialize on first request."
+    )
 
 
 @app.post("/recommend", response_model=RecommendationResponse, tags=["Recommendations"])
@@ -159,11 +151,8 @@ async def recommend_assessments(request: QueryRequest):
         }
         ```
     """
-    if recommender is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Recommendation engine not initialized"
-        )
+    # Lazy-initialize recommender on first request
+    rec = get_recommender()
     
     if not request.query or len(request.query.strip()) == 0:
         raise HTTPException(
@@ -173,7 +162,7 @@ async def recommend_assessments(request: QueryRequest):
     
     try:
         # Get recommendations
-        result = recommender.get_recommendations(
+        result = rec.get_recommendations(
             query=request.query,
             min_results=5,
             max_results=10

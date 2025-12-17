@@ -8,28 +8,40 @@ import json
 from typing import List, Dict
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
 
 
 class LocalEmbeddingPipeline:
     def __init__(self, persist_directory: str = "./chroma_db"):
         """
-        Initialize the embedding pipeline with ChromaDB and local embeddings
+        Initialize the embedding pipeline with ChromaDB. The heavy SentenceTransformer
+        model is lazy-loaded on demand to avoid using large amounts of memory at
+        process startup (important for low-memory deployment targets).
         """
         self.persist_directory = persist_directory
-        
-        # Initialize ChromaDB client
+
+        # Initialize ChromaDB client (lightweight)
         self.client = chromadb.PersistentClient(path=persist_directory)
-        
-        # Load local sentence transformer model
-        # Using all-MiniLM-L6-v2: fast, efficient, good quality
-        print("Loading local embedding model (all-MiniLM-L6-v2)...")
-        self.model = SentenceTransformer('all-MiniLM-L6-v2')
-        print("Model loaded successfully!")
-        
-        # Create or get collection
+
+        # Model will be loaded lazily by _get_model()
+        self.model = None
+
+        # Create or get collection name placeholder
         self.collection_name = "shl_assessments"
         self.collection = None
+
+    def _get_model(self):
+        """Lazy-load the sentence-transformers model on first use."""
+        if self.model is None:
+            try:
+                # Import here to avoid importing heavy deps at module import time
+                from sentence_transformers import SentenceTransformer
+
+                print("Loading local embedding model (all-MiniLM-L6-v2)...")
+                self.model = SentenceTransformer('all-MiniLM-L6-v2')
+                print("Model loaded successfully!")
+            except Exception as e:
+                print(f"Failed to load embedding model: {e}")
+                raise
     
     def create_collection(self, reset: bool = False):
         """
@@ -121,6 +133,8 @@ class LocalEmbeddingPipeline:
         
         # Generate embeddings using local model
         print("Generating embeddings locally (this may take a minute)...")
+        # Ensure model is loaded
+        self._get_model()
         embeddings = self.model.encode(documents, show_progress_bar=True)
         
         # Add to ChromaDB
@@ -143,8 +157,9 @@ class LocalEmbeddingPipeline:
         """
         if not self.collection:
             self.collection = self.client.get_collection(name=self.collection_name)
-        
-        # Generate query embedding
+
+        # Generate query embedding (lazy-load model if needed)
+        self._get_model()
         query_embedding = self.model.encode([query])[0]
         
         # Search in ChromaDB

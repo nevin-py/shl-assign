@@ -16,17 +16,6 @@ load_dotenv()
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Use lightweight API-based recommender on Render (memory-constrained)
-# Use local model for development/local testing
-USE_API_EMBEDDINGS = os.getenv("USE_API_EMBEDDINGS", "false").lower() == "true"
-
-if USE_API_EMBEDDINGS:
-    from backend.recommender_api import APIRecommendationEngine as RecommendationEngine
-    print("🌐 Using API-based embeddings (lightweight for deployment)")
-else:
-    from backend.recommender_local import LocalRecommendationEngine as RecommendationEngine
-    print("💻 Using local embeddings (full model)")
-
 # Initialize FastAPI app
 app = FastAPI(
     title="SHL Assessment Recommendation API",
@@ -101,11 +90,26 @@ def get_recommender():
     if recommender is None:
         try:
             print("Initializing recommendation engine...")
+            
+            # Check which embedding mode to use
+            use_api = os.getenv("USE_API_EMBEDDINGS", "false").lower() == "true"
+            
+            if use_api:
+                print("🌐 Using API-based embeddings (lightweight for deployment)")
+                from backend.recommender_api import APIRecommendationEngine
+                RecommendationEngine = APIRecommendationEngine
+            else:
+                print("💻 Using local embeddings (full model)")
+                from backend.recommender_local import LocalRecommendationEngine
+                RecommendationEngine = LocalRecommendationEngine
+            
             chroma_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
             recommender = RecommendationEngine(chroma_dir=chroma_dir)
-            print("Recommendation engine initialized successfully")
+            print("✓ Recommendation engine initialized successfully")
         except Exception as e:
-            print(f"Error initializing recommendation engine: {e}")
+            print(f"❌ Error initializing recommendation engine: {e}")
+            import traceback
+            traceback.print_exc()
             raise HTTPException(
                 status_code=503,
                 detail=f"Failed to initialize recommendation engine: {str(e)}"

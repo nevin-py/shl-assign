@@ -199,6 +199,10 @@ def main():
                     
                     # Create DataFrame for table view
                     df = pd.DataFrame(recommendations)
+                    # Rename 'name' to 'assessment_name' for consistent display
+                    if 'name' in df.columns and 'assessment_name' not in df.columns:
+                        df['assessment_name'] = df['name']
+                        df = df.drop('name', axis=1)
                     df.index = range(1, len(df) + 1)
                     
                     # Display as interactive table
@@ -224,8 +228,10 @@ def main():
                     # Detailed view
                     st.subheader("📋 Detailed View")
                     for i, rec in enumerate(recommendations, 1):
-                        with st.expander(f"{i}. {rec['assessment_name']}", expanded=(i <= 3)):
-                            st.markdown(f"**Assessment Name:** {rec['assessment_name']}")
+                        # Handle both 'name' and 'assessment_name' keys for compatibility
+                        assessment_name = rec.get('name') or rec.get('assessment_name', 'Unknown Assessment')
+                        with st.expander(f"{i}. {assessment_name}", expanded=(i <= 3)):
+                            st.markdown(f"**Assessment Name:** {assessment_name}")
                             st.markdown(f"**URL:** [{rec['url']}]({rec['url']})")
                             st.markdown("---")
                             st.markdown("Click the URL above to view full assessment details on SHL website")

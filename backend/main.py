@@ -13,7 +13,16 @@ from dotenv import load_dotenv
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.recommender_local import LocalRecommendationEngine
+# Use lightweight API-based recommender on Render (memory-constrained)
+# Use local model for development/local testing
+USE_API_EMBEDDINGS = os.getenv("USE_API_EMBEDDINGS", "false").lower() == "true"
+
+if USE_API_EMBEDDINGS:
+    from backend.recommender_api import APIRecommendationEngine as RecommendationEngine
+    print("🌐 Using API-based embeddings (lightweight for deployment)")
+else:
+    from backend.recommender_local import LocalRecommendationEngine as RecommendationEngine
+    print("💻 Using local embeddings (full model)")
 
 load_dotenv()
 
@@ -90,9 +99,9 @@ def get_recommender():
     global recommender
     if recommender is None:
         try:
-            print("Initializing local recommendation engine...")
+            print("Initializing recommendation engine...")
             chroma_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
-            recommender = LocalRecommendationEngine(chroma_dir=chroma_dir)
+            recommender = RecommendationEngine(chroma_dir=chroma_dir)
             print("Recommendation engine initialized successfully")
         except Exception as e:
             print(f"Error initializing recommendation engine: {e}")
